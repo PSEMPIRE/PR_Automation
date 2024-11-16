@@ -13,15 +13,18 @@ env.read_env()
 
 # Retrieve environment variables
 GITHUB_TOKEN = env("MY_GITHUB_TOKEN")
-# print(GITHUB_TOKEN)
-
+TESTS_REPO = env("TESTS_REPO")
+DJANGO_REPO = env("DJANGO_REPO")
+COVERAGE_BASE_URL = env("COVERAGE_BASE_URL")
+COMMENT_BASE_URL = env("COMMENT_BASE_URL")
+DJANGO_PROJECT_NAME=env("DJANGO_PROJECT_NAME")
 
 app = Flask(__name__)
 
 
 # Define variables for repository URLs
-TESTS_REPO=f"https://{GITHUB_TOKEN}@github.com/PSEMPIRE/test_repo.git"
-DJANGO_REPO = f"https://{GITHUB_TOKEN}@github.com/PSEMPIRE/Inventory_App.git"
+TESTS_REPO = TESTS_REPO.replace("https://", f"https://{GITHUB_TOKEN}@")
+DJANGO_REPO = DJANGO_REPO.replace("https://", f"https://{GITHUB_TOKEN}@")
 # Webhook listener endpoint
 @app.route("/webhook", methods=["POST"])
 def webhook_listener():
@@ -43,7 +46,7 @@ def handle_pr(pr_number):
         # Clone the private Django repo
         git.Repo.clone_from(DJANGO_REPO, repo_dir)
         print("Repository cloned successfully.")
-        django_project_path = os.path.join(repo_dir, "inventory")
+        django_project_path = os.path.join(repo_dir, DJANGO_PROJECT_NAME)
 
         # Run tests with coverage and pytest to generate reports
         run_tests(django_project_path)
@@ -74,7 +77,7 @@ def run_tests(django_project_path):
 
         # Run pytest with Django settings and generate report.html
         subprocess.run(
-            ["pytest", "--ds=inventory.settings", "--html=report.html"],
+            ["pytest", f"--ds={DJANGO_PROJECT_NAME}.settings", "--html=report.html"],
             cwd=django_project_path,
             check=True
         )
@@ -102,11 +105,11 @@ def push_results(pr_number):
         os.makedirs(pr_dir, exist_ok=True)
 
         # Copy index.html (coverage report), report.html (pytest report), and the entire assets folder to the PR-specific directory
-        index_html_source = os.path.join("/tmp/django-repo/inventory/htmlcov/index.html")
+        index_html_source = os.path.join(f"/tmp/django-repo/{DJANGO_PROJECT_NAME}/htmlcov/index.html")
         index_html_destination = os.path.join(pr_dir, "index.html")
-        report_html_source = os.path.join("/tmp/django-repo/inventory/report.html")
+        report_html_source = os.path.join(f"/tmp/django-repo/{DJANGO_PROJECT_NAME}/report.html")
         report_html_destination = os.path.join(pr_dir, "report.html")
-        assets_source = os.path.join("/tmp/django-repo/inventory/assets") 
+        assets_source = os.path.join(f"/tmp/django-repo/{DJANGO_PROJECT_NAME}/assets") 
         assets_destination = os.path.join(pr_dir, "assets")  # This will copy the 'assets' folder inside the pr-{pr_number} directory
         
         # Check if the source files exist before copying
@@ -136,9 +139,9 @@ def push_results(pr_number):
         print("Coverage report, test report, and assets folder pushed to tests repo successfully.")
         
         # Construct the URLs to the reports and assets in GitHub Pages
-        coverage_url = f"https://psempire.github.io/test_repo/pr-{pr_number}/index.html"
-        test_report_url = f"https://psempire.github.io/test_repo/pr-{pr_number}/report.html"
-        assets_url = f"https://psempire.github.io/test_repo/pr-{pr_number}/assets/style.css"
+        coverage_url = f"{COVERAGE_BASE_URL}/pr-{pr_number}/index.html"
+        test_report_url = f"{COVERAGE_BASE_URL}/pr-{pr_number}/report.html"
+        assets_url = f"{COVERAGE_BASE_URL}/pr-{pr_number}/assets/style.css"
         
         # Post a comment on the PR with the URLs to the reports and style.css
         post_comment(pr_number, coverage_url, test_report_url, assets_url)
@@ -159,7 +162,7 @@ def post_comment(pr_number, coverage_url, test_report_url, assets_url):
         f"Test report available at: {test_report_url}\n\n"
         f"Style file available at: {assets_url}"
     )
-    comment_url = f"https://api.github.com/repos/PSEMPIRE/Inventory_App/issues/{pr_number}/comments"
+    comment_url = f"{COMMENT_BASE_URL}/{pr_number}/comments"
     
     response = requests.post(comment_url, json={"body": comment_body}, headers=headers)
     
