@@ -1,4 +1,4 @@
-# Webhook-based PR Test Automation for Django Project
+
 
 This project automates the process of running tests, generating coverage reports, and posting the results to a GitHub pull request (PR) using a Flask application. When a PR is opened or updated, it triggers tests in a Django repository, generates HTML reports, and posts the results back to the PR in the form of comments with links to the reports.
 
